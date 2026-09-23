@@ -30,6 +30,15 @@ class InvalidTickerSpec extends CatsEffectSuite {
     }
   }
 
+  test("Charts.getStock on an invalid ticker raises YFinanceError.TickerNotFound") {
+    YFinanceClient.resource[IO](config).use { client =>
+      client.charts.getStock(invalidTicker).attempt.map {
+        case Left(YFinanceError.TickerNotFound(t)) => assertEquals(t, invalidTicker)
+        case other                                 => fail(s"expected TickerNotFound($invalidTicker), got $other")
+      }
+    }
+  }
+
   test("downloadCharts on an invalid ticker raises YFinanceError.TickerNotFound") {
     YFinanceClient.resource[IO](config).use { client =>
       client

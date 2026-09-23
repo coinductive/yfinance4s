@@ -3,43 +3,12 @@ package io.github.coinductive.yfinance4s.models.internal
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import io.circe.generic.semiauto.deriveDecoder
-import io.circe.parser.decode
 import io.circe.{Decoder, DecodingFailure, HCursor, Json}
-import io.github.coinductive.yfinance4s.models.internal.YFinanceQuoteResult.{Fundamentals, Summary}
+import io.github.coinductive.yfinance4s.models.internal.YFinanceQuoteResult.{FundamentalsBody, QuoteSummary}
 
-private[yfinance4s] final case class YFinanceQuoteResult(summary: Summary, fundamentals: Fundamentals)
+private[yfinance4s] final case class YFinanceQuoteResult(summary: QuoteSummary, fundamentals: FundamentalsBody)
 
 private[yfinance4s] object YFinanceQuoteResult {
-
-  private[yfinance4s] final case class Summary(body: SummaryBody)
-
-  object Summary {
-    implicit val decoder: Decoder[Summary] =
-      (c: HCursor) => {
-        for {
-          bodyStr <- c.downField("body").as[String]
-          body <- decode[SummaryBody](bodyStr).leftMap(DecodingFailure.fromThrowable(_, Nil))
-        } yield Summary(body)
-      }
-  }
-
-  private[yfinance4s] final case class Fundamentals(body: FundamentalsBody)
-
-  object Fundamentals {
-    implicit val decoder: Decoder[Fundamentals] =
-      (c: HCursor) => {
-        for {
-          bodyStr <- c.downField("body").as[String]
-          body <- decode[FundamentalsBody](bodyStr).leftMap(DecodingFailure.fromThrowable(_, Nil))
-        } yield Fundamentals(body)
-      }
-  }
-
-  private[yfinance4s] final case class SummaryBody(quoteSummary: QuoteSummary)
-
-  private[yfinance4s] object SummaryBody {
-    implicit val decoder: Decoder[SummaryBody] = deriveDecoder
-  }
 
   private[yfinance4s] final case class FundamentalsBody(timeseries: TimeSeries)
 

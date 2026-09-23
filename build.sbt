@@ -29,7 +29,6 @@ val sttpV = "3.10.1"
 val catsRetryV = "3.1.3"
 val enumeratumV = "1.7.5"
 val chimneyV = "1.8.2"
-val jsoupV = "1.18.3"
 val munitCatsEffectV = "1.0.7"
 val upperboundV = "0.5.0"
 
@@ -68,7 +67,6 @@ lazy val core = crossProject(JVMPlatform, JSPlatform)
   .jvmSettings(
     libraryDependencies ++= Seq(
       "com.softwaremill.sttp.client3" %% "async-http-client-backend-cats" % sttpV,
-      "org.jsoup" % "jsoup" % jsoupV,
     )
   )
   .jsSettings(

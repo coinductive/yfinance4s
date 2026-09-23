@@ -177,9 +177,8 @@ object YFinanceClient {
     for {
       rateLimiter <- RateLimiter.resource[F](config.rateLimit)
       gateway <- YFinanceGateway.resource[F](config.connectTimeout, config.readTimeout, config.retries, rateLimiter)
-      scrapper <- YFinanceScrapper.resource[F](config.connectTimeout, config.readTimeout, config.retries, rateLimiter)
       auth <- YFinanceAuth.resource[F](config.connectTimeout, config.readTimeout, config.retries, rateLimiter)
-    } yield new YFinanceClientImpl(gateway, scrapper, auth)
+    } yield new YFinanceClientImpl(gateway, auth)
 
   private def downloadMulti[F[_], A](
       tickers: NonEmptyList[Ticker],
@@ -193,11 +192,10 @@ object YFinanceClient {
 
   private final class YFinanceClientImpl[F[_]: MonadThrow](
       gateway: YFinanceGateway[F],
-      scrapper: YFinanceScrapper[F],
       auth: YFinanceAuth[F]
   ) extends YFinanceClient[F] {
 
-    val charts: Charts[F] = Charts(gateway, scrapper)
+    val charts: Charts[F] = Charts(gateway, auth)
     val options: Options[F] = Options(gateway, auth)
     val holders: Holders[F] = Holders(gateway, auth)
     val financials: Financials[F] = Financials(gateway)

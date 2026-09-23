@@ -34,7 +34,7 @@ Published to Maven Central for Scala 2.13 and Scala 3:
 // JVM
 libraryDependencies += "io.github.coinductive" %% "yfinance4s" % "0.1.0"
 
-// Scala.js (see Scala.js Setup below)
+// Scala.js
 libraryDependencies += "io.github.coinductive" %%% "yfinance4s" % "0.1.0"
 ```
 
@@ -97,14 +97,6 @@ The same opt-in also standardises subunit-quoted international charts - a London
 | [Screener](docs/screener.md) | Custom and predefined stock/fund screens |
 | [Batch Operations](docs/batch-operations.md) | Multi-ticker parallel fetches |
 | [Reference](docs/reference.md) | Intervals, ranges, frequencies, data models |
-
-## Scala.js Setup
-
-When using this library with Scala.js, install the `node-html-parser` npm package:
-
-```bash
-npm install node-html-parser
-```
 
 ## License
 

@@ -120,10 +120,12 @@ clientResource.use { client =>
       println(s"P/E Ratio: ${stock.trailingPE.getOrElse("N/A")}")
       println(s"Dividend Yield: ${stock.dividendYield.map(y => f"${y * 100}%.2f%%").getOrElse("N/A")}")
     case None =>
-      println("Stock not found")
+      println("No quote data")
   }
 }
 ```
+
+`getStock` raises `YFinanceError.TickerNotFound` for an unknown ticker, like the other endpoints, and returns `None` only when Yahoo has no quote data for a known symbol. Each call makes two requests to Yahoo - quote summary and fundamentals - both of which count against the client's rate limit.
 
 ## Dividends
 

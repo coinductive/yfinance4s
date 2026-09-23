@@ -38,7 +38,10 @@ trait Charts[F[_]] {
       repair: PriceRepairConfig
   ): F[Option[ChartResult]]
 
-  /** Retrieves current quote with fundamentals for a ticker. */
+  /** Retrieves the current quote and fundamentals (company profile, valuation ratios, key statistics) for a ticker.
+    * Returns `None` when Yahoo has no quote data for the ticker; raises [[models.YFinanceError.TickerNotFound]] for an
+    * unknown ticker.
+    */
   def getStock(ticker: Ticker): F[Option[StockResult]]
 
   /** Retrieves dividend history for a ticker. */
@@ -87,12 +90,12 @@ private[yfinance4s] object Charts {
   private val MetadataInterval: Interval = Interval.`1Day`
   private val MetadataRange: Range = Range.`1Month`
 
-  def apply[F[_]: MonadThrow](gateway: YFinanceGateway[F], scrapper: YFinanceScrapper[F]): Charts[F] =
-    new ChartsImpl(gateway, scrapper, IntervalReconstructor.noOp[F], FxRateSource.yahoo(gateway))
+  def apply[F[_]: MonadThrow](gateway: YFinanceGateway[F], auth: YFinanceAuth[F]): Charts[F] =
+    new ChartsImpl(gateway, auth, IntervalReconstructor.noOp[F], FxRateSource.yahoo(gateway))
 
   private final class ChartsImpl[F[_]: MonadThrow](
       gateway: YFinanceGateway[F],
-      scrapper: YFinanceScrapper[F],
+      auth: YFinanceAuth[F],
       reconstructor: IntervalReconstructor[F],
       fxRateSource: FxRateSource[F]
   ) extends Charts[F] {
@@ -122,7 +125,11 @@ private[yfinance4s] object Charts {
       gateway.getChart(ticker, interval, since, until).flatMap(mapAndRepair(ticker, interval, repair, _))
 
     def getStock(ticker: Ticker): F[Option[StockResult]] =
-      scrapper.getQuote(ticker).map(_.flatMap(mapQuoteResult))
+      for {
+        credentials <- auth.getCredentials
+        summary <- gateway.getStockSummary(ticker, credentials)
+        fundamentals <- gateway.getStockFundamentals(ticker)
+      } yield mapQuoteResult(YFinanceQuoteResult(summary, fundamentals))
 
     def getDividends(ticker: Ticker, interval: Interval, range: Range): F[Option[List[DividendEvent]]] =
       gateway.getChart(ticker, interval, range).map(extractDividends)
@@ -263,7 +270,7 @@ private[yfinance4s] object Charts {
         .sorted
 
     private def mapQuoteResult(result: YFinanceQuoteResult): Option[StockResult] =
-      result.summary.body.quoteSummary.result.headOption.map { quoteData =>
+      result.summary.result.headOption.map { quoteData =>
         val price = quoteData.price
         val profile = quoteData.summaryProfile
         val details = quoteData.summaryDetail
@@ -308,7 +315,7 @@ private[yfinance4s] object Charts {
           stats.shortPercentOfFloat.raw,
           stats.impliedSharesOutstanding.raw,
           stats.netIncomeToCommon.raw,
-          result.fundamentals.body.timeseries.result
+          result.fundamentals.timeseries.result
             .flatMap(_.trailingPegRatio.headOption.map(_.reportedValue.raw)),
           stats.enterpriseToRevenue.raw,
           stats.enterpriseToEbitda.raw,

@@ -12,7 +12,7 @@ metals.sbt
 .vscode
 .bsp
 
-# Node artifacts from installing the Scala.js test runtime dep (node-html-parser)
+# Stale npm artifacts from the former Scala.js test dependency (node-html-parser)
 node_modules/
 package.json
 package-lock.json

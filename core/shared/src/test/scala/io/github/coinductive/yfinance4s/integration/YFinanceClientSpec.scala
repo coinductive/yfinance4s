@@ -32,4 +32,20 @@ class YFinanceClientSpec extends CatsEffectSuite {
     }
   }
 
+  test("returns fundamentals and PEG ratio for AAPL") {
+    YFinanceClient.resource[IO](config).use { client =>
+      val ticker = Ticker("AAPL")
+
+      client.charts.getStock(ticker).map { stockResultOpt =>
+        assert(stockResultOpt.isDefined, "Stock result should be defined for AAPL")
+
+        val stockResult = stockResultOpt.get
+        assert(stockResult.totalRevenue > 0L, "Total revenue should be positive")
+        assert(stockResult.sharesOutstanding > 0L, "Shares outstanding should be positive")
+        assert(stockResult.sector.isDefined, "Sector should be defined")
+        assert(stockResult.pegRatio.isDefined, "PEG ratio should be defined")
+      }
+    }
+  }
+
 }

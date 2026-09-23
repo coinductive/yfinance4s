@@ -36,12 +36,6 @@ libraryDependencies += "io.github.coinductive" %%% "yfinance4s" % "0.1.0"
 - **Scala 2.13 & Scala 3**
 - **JVM and Scala.js**
 
-When using Scala.js, install the `node-html-parser` npm package:
-
-```bash
-npm install node-html-parser
-```
-
 ## Creating a Client
 
 ```scala

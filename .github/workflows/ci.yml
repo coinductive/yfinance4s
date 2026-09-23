@@ -33,10 +33,6 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install npm dependencies
-        if: matrix.platform == 'JS'
-        run: npm install node-html-parser
-
       - name: Setup sbt
         uses: sbt/setup-sbt@v1
 

@@ -6,8 +6,9 @@ import io.circe.{Decoder, Json}
 import io.circe.parser.decode
 import io.github.coinductive.yfinance4s.models.*
 import io.github.coinductive.yfinance4s.models.internal.*
+import io.github.coinductive.yfinance4s.models.internal.YFinanceQuoteResult.{FundamentalsBody, QuoteSummary}
 import retry.{RetryPolicies, RetryPolicy, Sleep}
-import sttp.client3.{SttpBackend, UriContext, basicRequest}
+import sttp.client3.*
 
 import java.time.{ZoneOffset, ZonedDateTime}
 import scala.concurrent.duration.FiniteDuration
@@ -27,6 +28,10 @@ sealed trait YFinanceGateway[F[_]] {
   def getOptions(ticker: Ticker, expiration: Long, credentials: YFinanceCredentials): F[OptionChainResponse]
 
   def getHolders(ticker: Ticker, credentials: YFinanceCredentials): F[HoldersQuoteSummary]
+
+  def getStockSummary(ticker: Ticker, credentials: YFinanceCredentials): F[QuoteSummary]
+
+  def getStockFundamentals(ticker: Ticker): F[FundamentalsBody]
 
   def getFinancials(ticker: Ticker, frequency: Frequency, statementType: String = "all"): F[YFinanceFinancialsResult]
 
@@ -103,6 +108,11 @@ private object YFinanceGateway {
     private val AnalystModules =
       "financialData,recommendationTrend,upgradeDowngradeHistory,earningsTrend,earningsHistory,indexTrend"
 
+    private val StockModules = "price,summaryProfile,summaryDetail,financialData,defaultKeyStatistics"
+    private val StockFundamentalsTypes = "trailingPegRatio"
+    private val StockFundamentalsLookbackMonths = 6L
+    private val FinancialsLookbackYears = 10L
+
     private val FinancialsEndpoint =
       uri"https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/"
 
@@ -126,6 +136,7 @@ private object YFinanceGateway {
     private val OptionChainPath = "optionChain"
     private val QuoteSummaryPath = "quoteSummary"
     private val FinancePath = "finance"
+    private val CorsDomain = "finance.yahoo.com"
 
     private val VisualizationQueryParams = Map(
       "lang" -> "en-US",
@@ -159,7 +170,7 @@ private object YFinanceGateway {
     )
 
     private val ScreenerQueryParams = Map(
-      "corsDomain" -> "finance.yahoo.com",
+      "corsDomain" -> CorsDomain,
       "formatted" -> "false",
       "lang" -> "en-US",
       "region" -> "US"
@@ -230,7 +241,7 @@ private object YFinanceGateway {
             .addPath(ticker.show)
             .withParams(
               ("modules", HoldersModules),
-              ("corsDomain", "finance.yahoo.com"),
+              ("corsDomain", CorsDomain),
               ("crumb", credentials.crumb)
             )
         )
@@ -238,6 +249,29 @@ private object YFinanceGateway {
         .header("Cookie", credentials.cookies.mkString("; "))
 
       sendRequest(req, parseTickerEnvelope[HoldersQuoteSummary](QuoteSummaryPath, "holders", ticker))
+    }
+
+    def getStockSummary(ticker: Ticker, credentials: YFinanceCredentials): F[QuoteSummary] = {
+      val req = basicRequest
+        .get(
+          QuoteSummaryEndpoint
+            .addPath(ticker.show)
+            .withParams(
+              ("modules", StockModules),
+              ("corsDomain", CorsDomain),
+              ("crumb", credentials.crumb)
+            )
+        )
+        .headers(YFinanceAuth.apiHeaders *)
+        .header("Cookie", credentials.cookies.mkString("; "))
+
+      sendRequest(req, parseTickerEnvelope[QuoteSummary](QuoteSummaryPath, "stock", ticker))
+    }
+
+    def getStockFundamentals(ticker: Ticker): F[FundamentalsBody] = {
+      val now = ZonedDateTime.now(ZoneOffset.UTC)
+      val req = timeseriesRequest(ticker, StockFundamentalsTypes, now.minusMonths(StockFundamentalsLookbackMonths), now)
+      sendRequest(req, parseAs[FundamentalsBody]("stock fundamentals"))
     }
 
     def getFinancials(
@@ -254,21 +288,27 @@ private object YFinanceGateway {
 
       val typeParam = keys.map(k => s"${frequency.apiValue}$k").mkString(",")
       val now = ZonedDateTime.now(ZoneOffset.UTC)
-      val startDate = now.minusYears(10)
+      val req = timeseriesRequest(ticker, typeParam, now.minusYears(FinancialsLookbackYears), now)
 
-      val req = basicRequest.get(
+      sendRequest(req, parseAs[YFinanceFinancialsResult]("financials"))
+    }
+
+    private def timeseriesRequest(
+        ticker: Ticker,
+        typeParam: String,
+        since: ZonedDateTime,
+        until: ZonedDateTime
+    ): RequestT[Identity, Either[String, String], Any] =
+      basicRequest.get(
         FinancialsEndpoint
           .addPath(ticker.show)
           .withParams(
             ("symbol", ticker.show),
             ("type", typeParam),
-            ("period1", startDate.toEpochSecond.toString),
-            ("period2", now.toEpochSecond.toString)
+            ("period1", since.toEpochSecond.toString),
+            ("period2", until.toEpochSecond.toString)
           )
       )
-
-      sendRequest(req, parseAs[YFinanceFinancialsResult]("financials"))
-    }
 
     def getAnalystData(ticker: Ticker, credentials: YFinanceCredentials): F[AnalystQuoteSummary] = {
       val req = basicRequest
@@ -277,7 +317,7 @@ private object YFinanceGateway {
             .addPath(ticker.show)
             .withParams(
               ("modules", AnalystModules),
-              ("corsDomain", "finance.yahoo.com"),
+              ("corsDomain", CorsDomain),
               ("crumb", credentials.crumb)
             )
         )
